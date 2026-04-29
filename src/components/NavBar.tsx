@@ -20,20 +20,21 @@ export default function NavBar({ view, setView, user }: Props) {
   return (
     <nav className="nav">
       {/* TODO: Replace with your app name. */}
-      <span className="brand">My App</span>
+      <span className="brand">Fini Pokémon Tracker App</span>
 
       <button className={cls('home')} onClick={() => setView('home')}>
         Home
       </button>
+
       <button className={cls('list')} onClick={() => setView('list')}>
-        Products
+        {user ? 'My Pokémon' : 'Pokémon'}
       </button>
 
       <span className="spacer" />
 
       {user ? (
         <>
-          <span style={{ color: 'var(--muted)' }}>{user.email}</span>
+          <span style={{ color: 'black' }}>{user.email}</span>
           <button onClick={handleSignOut}>Sign Out</button>
         </>
       ) : (

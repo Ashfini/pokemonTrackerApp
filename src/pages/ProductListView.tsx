@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Product } from '../types';
 import ProductForm from '../components/ProductForm';
+import SummaryCards from '../components/SummaryCards';
 
 interface Props {
   user: User | null;
@@ -14,6 +15,7 @@ export default function ProductListView({ user }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState<Product | null>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -26,13 +28,13 @@ export default function ProductListView({ user }: Props) {
     // TODO: Replace 'products' with your actual table name, and replace
     // Product with your type. Order however makes sense for your data.
     //
-    // const { data, error } = await supabase
-    //   .from('products')
-    //   .select('*')
-    //   .order('created_at', { ascending: false });
-    //
-    // if (error) setError(error.message);
-    // else setProducts(data ?? []);
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) setError(error.message);
+    else setProducts(data ?? []);
 
     setLoading(false);
   }
@@ -43,13 +45,17 @@ export default function ProductListView({ user }: Props) {
     // TODO: Insert into your table. Remember to include user_id so your
     // RLS policy can check ownership on later updates/deletes.
     //
-    // const { error } = await supabase
-    //   .from('products')
-    //   .insert([{ ...data, user_id: user.id }]);
-    //
-    // if (error) { alert(error.message); return; }
-    // setShowForm(false);
-    // fetchProducts();
+    const { error } = await supabase
+      .from('products')
+      .insert([{ ...data, user_id: user.id }]);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setShowForm(false);
+    fetchProducts();
 
     console.log('Add:', data);
   }
@@ -59,31 +65,54 @@ export default function ProductListView({ user }: Props) {
 
     // TODO: Update the row by id.
     //
-    // const { error } = await supabase
-    //   .from('products')
-    //   .update(data)
-    //   .eq('id', editing.id);
-    //
-    // if (error) { alert(error.message); return; }
-    // setEditing(null);
-    // fetchProducts();
+    const { error } = await supabase
+      .from('products')
+      .update(data)
+      .eq('id', editing.id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setEditing(null);
+    fetchProducts();
 
     console.log('Edit:', editing.id, data);
   }
 
-  async function handleDelete(id: number) {
-    if (!window.confirm('Delete this item? This cannot be undone.')) return;
+  async function handleDelete() {
+    if (!deleting) return;
 
     // TODO: Delete the row by id.
     //
-    // const { error } = await supabase.from('products').delete().eq('id', id);
-    // if (error) { alert(error.message); return; }
-    // fetchProducts();
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', deleting.id);
 
-    console.log('Delete:', id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setDeleting(null);
+    fetchProducts();
+
+    console.log('Delete:', deleting.id);
   }
 
-  if (loading) return <p>Loading products...</p>;
+  const summary = {
+    totalCount: products.length,
+    averageRating:
+      products.length > 0
+        ? products.reduce((sum, p) => sum + Number(p.rating), 0) /
+          products.length
+        : 0,
+    totalValue: products.reduce((sum, p) => sum + Number(p.price), 0),
+  };
+
+  if (loading) return <p>Loading Pokémon...</p>;
   if (error) return <p className="error">Failed to load: {error}</p>;
 
   if (showForm || editing) {
@@ -102,19 +131,25 @@ export default function ProductListView({ user }: Props) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <h1 style={{ flex: 1 }}>Products</h1>
+        <h1 style={{ flex: 1 }}>{user ? 'My Pokémon' : 'Pokémon'}</h1>
+
         {/* Only signed-in users see the Add button. RLS enforces the real rule
             at the database level — this UI check just hides the affordance. */}
         {user && (
           <button className="primary" onClick={() => setShowForm(true)}>
-            + Add New
+            + Add Pokémon
           </button>
         )}
       </div>
 
+      <SummaryCards summary={summary} />
+
       {products.length === 0 ? (
         <p style={{ color: 'var(--muted)' }}>
-          No products yet. {user ? 'Click “Add New” to create one.' : 'Sign in to add the first one.'}
+          No Pokémon yet.{' '}
+          {user
+            ? 'Click “Add Pokémon” to create one.'
+            : 'Sign in to add the first one.'}
         </p>
       ) : (
         products.map((p) => (
@@ -125,18 +160,49 @@ export default function ProductListView({ user }: Props) {
                 <p>{p.description}</p>
                 <p>Platform: {p.platform} · Rating: {p.rating}/10</p>
             */}
-            <p>Product #{p.id}</p>
+
+            <h3>{p.title}</h3>
+            <p>{p.description}</p>
+            <p>
+              <strong>Type:</strong> {p.category}
+            </p>
+            <p>
+              <strong>Value:</strong> ${Number(p.price).toFixed(2)}
+            </p>
+            <p>
+              <strong>Power Rating:</strong> {p.rating}/10
+            </p>
 
             {user && (
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button onClick={() => setEditing(p)}>Edit</button>
-                <button className="danger" onClick={() => handleDelete(p.id)}>
+                <button className="danger" onClick={() => setDeleting(p)}>
                   Delete
                 </button>
               </div>
             )}
           </div>
         ))
+      )}
+
+      {deleting && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2>Delete Pokémon?</h2>
+
+            <p>
+              Are you sure you want to delete <b>{deleting.title}</b>? This
+              cannot be undone.
+            </p>
+
+            <div className="modal-actions">
+              <button onClick={() => setDeleting(null)}>Cancel</button>
+              <button className="danger" onClick={handleDelete}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
