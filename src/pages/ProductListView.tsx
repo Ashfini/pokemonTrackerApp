@@ -19,7 +19,7 @@ export default function ProductListView({ user }: Props) {
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [user]);
 
   async function fetchProducts() {
     setLoading(true);
@@ -28,10 +28,16 @@ export default function ProductListView({ user }: Props) {
     // TODO: Replace 'products' with your actual table name, and replace
     // Product with your type. Order however makes sense for your data.
     //
-    const { data, error } = await supabase
+    let query = supabase
       .from('products')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (user) {
+      query = query.eq('user_id', user.id);
+    }
+
+    const { data, error } = await query;
 
     if (error) setError(error.message);
     else setProducts(data ?? []);
@@ -68,7 +74,8 @@ export default function ProductListView({ user }: Props) {
     const { error } = await supabase
       .from('products')
       .update(data)
-      .eq('id', editing.id);
+      .eq('id', editing.id)
+      .eq('user_id', user?.id);
 
     if (error) {
       alert(error.message);
@@ -89,7 +96,8 @@ export default function ProductListView({ user }: Props) {
     const { error } = await supabase
       .from('products')
       .delete()
-      .eq('id', deleting.id);
+      .eq('id', deleting.id)
+      .eq('user_id', user?.id);
 
     if (error) {
       alert(error.message);
